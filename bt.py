@@ -61,6 +61,24 @@ def segments(points):
         segs.append([points[i], points[(i+1) % len(points)]])
     return np.array(segs)
 
+def r0init(MC):
+    r0s = np.zeros((MC,2))
+    ii = 0
+    while ii < MC:
+        r0 = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]])
+        if (r0[0]<2) & (r0[0]>0) & (r0[1]>0) & (r0[1]<10):
+            r0s[ii] = r0
+            ii +=1
+    return r0s
+
+def v0init(MC):
+    theta = 2*np.pi*np.random.random(MC)
+    v0norm = np.random.normal(v0mean, v0var, MC)
+    v0s = np.ones((MC,2))
+    v0s[:,0] = v0norm*np.cos(theta)
+    v0s[:,1] = v0norm*np.sin(theta)
+    return v0s
+
 # physical parameters
 tau = 20                    # ps
 tmax = 100                  # ~5*tau
@@ -68,7 +86,7 @@ r0mean = [1, 3]             # micrometers
 r0var = 0.8
 v0mean = 1.0                # micron/ps
 v0var = 0.1
-phi = 0.1*np.pi
+phi = 0.0*np.pi
 MC = 100
 
 filename = f'MC{MC}tau{tau:.0f}phi{phi:.2f}vel{v0mean:.1f}.pdf'
@@ -87,15 +105,8 @@ xgrid, dx = np.linspace(xmin, xmax, xsize, retstep=True)
 ygrid, dy = np.linspace(ymin, ymax, ysize, retstep=True)
 bins = np.zeros((xsize-1,ysize-1))
 
-r0s = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]], MC)
-r0s = r0s[(r0s[:,0]<2) * (r0s[:,0]>0) * (r0s[:,1]>0) * (r0s[:,1]<10)]
-MC = len(r0s)
-
-theta = 2*np.pi*np.random.random(MC)
-v0norm = np.random.normal(v0mean, v0var, MC)
-v0s = np.ones((MC,2))
-v0s[:,0] = v0norm*np.cos(theta)
-v0s[:,1] = v0norm*np.sin(theta)
+r0s = r0init(MC)
+v0s = v0init(MC)
 
 for jj in tqdm(range(MC)):
     r0 = r0s[jj]
@@ -135,13 +146,8 @@ profilegrid = np.array(profilegrid)
 
 fig, axs = plt.subplots(2)
 fig.set_size_inches(7, 5)
-
-print(axs[0].get_position())
-print(axs[1].get_position())
-
 axs[0].set_position([0.37, 0.48, 0.65, 0.88])
 axs[1].set_position([0.125, 0.11, 0.9, 0.46])
-
 axs[0].imshow(bins.T, cmap='coolwarm', origin='lower', extent=[xmin, xmax, ymin, ymax], interpolation='bicubic')
 axs[0].plot(segs[:,:,0], segs[:,:,1], 'k')
 axs[0].plot(section[:,0],section[:,1],'r')
@@ -157,7 +163,7 @@ for vl in vline:
 axs[1].set_xlabel('Distance (μm)')
 axs[1].set_ylabel('Intensity (a.u.)')
 
-text = f'tmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
+text = f'MC steps = {MC}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
 plt.gcf().text(0.05,1.0,text)
 
 plt.savefig(filename, bbox_inches='tight')
