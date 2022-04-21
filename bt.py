@@ -55,6 +55,12 @@ def scattering(phi):
         beta = np.sqrt(1 + absvpara**2/absvperp**2*(1-alpha**2))
         return alpha*vpara - beta*vperp
 
+def segments(points):
+    segs = []
+    for i in range(len(points)):
+        segs.append([points[i], points[(i+1) % len(points)]])
+    return np.array(segs)
+
 # physical parameters
 tau = 20                    # ps
 tmax = 100                  # ~5*tau
@@ -62,19 +68,13 @@ r0mean = [1, 3]             # micrometers
 r0var = 0.8
 v0mean = 1.0                # micron/ps
 v0var = 0.1
-phi = 0.0*np.pi
-
+phi = 0.1*np.pi
 MC = 100
-filename = f'MC{MC}tau{tau:.1f}phi{phi:.1f}v0{v0mean:.1f}.pdf'
 
+filename = f'MC{MC}tau{tau:.0f}phi{phi:.2f}vel{v0mean:.1f}.pdf'
 points = np.array([[0, 0], [0, 10], [2, 10], [8, 3], [8, 10], [20, 10], [20, 0], [18,0], [18,8], [15,8], [15,0], [13,0], [13,8],[10,8],[10,0],[8,0],[2,7],[2,0]])
 section = np.array([[1,0],[1,8.5],[2,8.5],[8,1.5],[9,1.5],[9,9],[20,9]])
-segs = []
-
-for i in range(len(points)):
-    segs.append([points[i], points[(i+1) % len(points)]])
-
-segs = np.array(segs)
+segs = segments(points)
 
 edge = 0.5
 xmin = np.min(points[:,0]) - edge
