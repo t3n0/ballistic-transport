@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2022 Stefano Dal Forno.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -46,6 +62,11 @@ r0mean = [1, 3]             # micrometers
 r0var = 0.8
 v0mean = 1.0                # micron/ps
 v0var = 0.1
+phi = 0.0*np.pi
+
+MC = 100
+filename = f'MC{MC}tau{tau:.1f}phi{phi:.1f}v0{v0mean:.1f}.pdf'
+
 points = np.array([[0, 0], [0, 10], [2, 10], [8, 3], [8, 10], [20, 10], [20, 0], [18,0], [18,8], [15,8], [15,0], [13,0], [13,8],[10,8],[10,0],[8,0],[2,7],[2,0]])
 section = np.array([[1,0],[1,8.5],[2,8.5],[8,1.5],[9,1.5],[9,9],[20,9]])
 segs = []
@@ -66,7 +87,6 @@ xgrid, dx = np.linspace(xmin, xmax, xsize, retstep=True)
 ygrid, dy = np.linspace(ymin, ymax, ysize, retstep=True)
 bins = np.zeros((xsize-1,ysize-1))
 
-MC = 100
 r0s = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]], MC)
 r0s = r0s[(r0s[:,0]<2) * (r0s[:,0]>0) * (r0s[:,1]>0) * (r0s[:,1]<10)]
 MC = len(r0s)
@@ -77,7 +97,6 @@ v0s = np.ones((MC,2))
 v0s[:,0] = v0norm*np.cos(theta)
 v0s[:,1] = v0norm*np.sin(theta)
 
-phi = 0.1*np.pi
 for jj in tqdm(range(MC)):
     r0 = r0s[jj]
     v0 = v0s[jj]
@@ -115,6 +134,14 @@ profile = np.array(profile)
 profilegrid = np.array(profilegrid)
 
 fig, axs = plt.subplots(2)
+fig.set_size_inches(7, 5)
+
+print(axs[0].get_position())
+print(axs[1].get_position())
+
+axs[0].set_position([0.37, 0.48, 0.65, 0.88])
+axs[1].set_position([0.125, 0.11, 0.9, 0.46])
+
 axs[0].imshow(bins.T, cmap='coolwarm', origin='lower', extent=[xmin, xmax, ymin, ymax], interpolation='bicubic')
 axs[0].plot(segs[:,:,0], segs[:,:,1], 'k')
 axs[0].plot(section[:,0],section[:,1],'r')
@@ -131,7 +158,6 @@ axs[1].set_xlabel('Distance (μm)')
 axs[1].set_ylabel('Intensity (a.u.)')
 
 text = f'tmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
-plt.gcf().text(0.2,0.8,text)
+plt.gcf().text(0.05,1.0,text)
 
-plt.tight_layout()
-plt.show()
+plt.savefig(filename, bbox_inches='tight')
