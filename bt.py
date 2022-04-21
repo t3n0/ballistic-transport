@@ -78,7 +78,7 @@ v0s = np.ones((MC,2))
 v0s[:,0] = v0norm*np.cos(theta)
 v0s[:,1] = v0norm*np.sin(theta)
 
-phi = 0.0*np.pi
+phi = 0.1*np.pi
 for jj in tqdm(range(MC)):
     r0 = r0s[jj]
     v0 = v0s[jj]
