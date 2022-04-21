@@ -61,12 +61,21 @@ def segments(points):
         segs.append([points[i], points[(i+1) % len(points)]])
     return np.array(segs)
 
+def winding(point, polygon):
+    angle = 0
+    for i in range(len(polygon)):
+        aux1 = polygon[i]-point
+        aux2 = polygon[(i+1) % len(polygon)]-point
+        newangle = np.arctan2(aux1[0]*aux2[1]-aux1[1]*aux2[0], aux1[0]*aux2[0]+aux1[1]*aux2[1])
+        angle += newangle
+    return not -0.1<angle/2/np.pi<0.1
+
 def r0init(MC):
     r0s = np.zeros((MC,2))
     ii = 0
     while ii < MC:
         r0 = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]])
-        if (r0[0]<2) & (r0[0]>0) & (r0[1]>0) & (r0[1]<10):
+        if winding(r0, points):
             r0s[ii] = r0
             ii +=1
     return r0s
@@ -84,10 +93,10 @@ tau = 20                    # ps
 tmax = 100                  # ~5*tau
 r0mean = [1, 3]             # micrometers
 r0var = 0.8
-v0mean = 1.0                # micron/ps
+v0mean = 10.0                # micron/ps
 v0var = 0.1
-phi = 0.0*np.pi
-MC = 100
+phi = 0.1*np.pi
+MC = 10000
 
 filename = f'MC{MC}tau{tau:.0f}phi{phi:.2f}vel{v0mean:.1f}.pdf'
 points = np.array([[0, 0], [0, 10], [2, 10], [8, 3], [8, 10], [20, 10], [20, 0], [18,0], [18,8], [15,8], [15,0], [13,0], [13,8],[10,8],[10,0],[8,0],[2,7],[2,0]])
