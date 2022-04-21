@@ -40,10 +40,12 @@ def scattering(phi):
         return alpha*vpara - beta*vperp
 
 # physical parameters
-tau = 20 #ps
-tmax = 100 #ps #5*tau
-
-#micrometers
+tau = 20                    # ps
+tmax = 100                  # ~5*tau
+r0mean = [1, 3]             # micrometers
+r0var = 0.8
+v0mean = 1.0                # micron/ps
+v0var = 0.1
 points = np.array([[0, 0], [0, 10], [2, 10], [8, 3], [8, 10], [20, 10], [20, 0], [18,0], [18,8], [15,8], [15,0], [13,0], [13,8],[10,8],[10,0],[8,0],[2,7],[2,0]])
 section = np.array([[1,0],[1,8.5],[2,8.5],[8,1.5],[9,1.5],[9,9],[20,9]])
 segs = []
@@ -65,15 +67,12 @@ ygrid, dy = np.linspace(ymin, ymax, ysize, retstep=True)
 bins = np.zeros((xsize-1,ysize-1))
 
 MC = 100
-r0mean = [1, 3]
-r0var = [[0.8,0], [0,0.8]]
-
-r0s = np.random.multivariate_normal(r0mean, r0var, MC)
+r0s = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]], MC)
 r0s = r0s[(r0s[:,0]<2) * (r0s[:,0]>0) * (r0s[:,1]>0) * (r0s[:,1]<10)]
 MC = len(r0s)
 
 theta = 2*np.pi*np.random.random(MC)
-v0norm = np.random.normal(1.0, 0.1, MC)
+v0norm = np.random.normal(v0mean, v0var, MC)
 v0s = np.ones((MC,2))
 v0s[:,0] = v0norm*np.cos(theta)
 v0s[:,1] = v0norm*np.sin(theta)
@@ -120,9 +119,17 @@ axs[0].imshow(bins.T, cmap='coolwarm', origin='lower', extent=[xmin, xmax, ymin,
 axs[0].plot(segs[:,:,0], segs[:,:,1], 'k')
 axs[0].plot(section[:,0],section[:,1],'r')
 axs[0].set_aspect('equal')
+axs[0].set_xlabel('x (μm)')
+axs[0].set_ylabel('y (μm)')
 
-axs[1].plot(profilegrid, profile)
+axs[1].plot(profilegrid, profile/max(profile))
 for vl in vline:
     axs[1].axvline(x=vl,color='r')
+axs[1].set_xlabel('Distance (μm)')
+axs[1].set_ylabel('Intensity (a.u.)')
 
+text = f'tmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
+plt.gcf().text(0.2,0.8,text)
+
+plt.tight_layout()
 plt.show()
