@@ -76,7 +76,7 @@ def winding(point, polygon):
 def r0init(MC):
     r0s = np.zeros((MC,2))
     ii = 0
-    with tqdm(total=MC, desc='r0 init', leave=False) as pbar:
+    with tqdm(total=MC, desc='r0 init', leave=False, unit_scale=1) as pbar:
         while ii < MC:
             r0 = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]])
             if winding(r0, points):
@@ -119,11 +119,12 @@ def max_iterations(MC, v0, tmax):
 def plotter():
     fig, axs = plt.subplots(2)
     fig.set_size_inches(7, 5)
-    axs[0].set_position([0.37, 0.48, 0.65, 0.88])
-    axs[1].set_position([0.125, 0.11, 0.9, 0.46])
+    axs[0].set_position([0.45, 0.55, 0.5, 0.4])
+    axs[1].set_position([0.09, 0.1, 0.88, 0.35])
     axs[0].imshow(bins.T, cmap='coolwarm', origin='lower', extent=[xmin, xmax, ymin, ymax], interpolation='bicubic')
-    axs[0].plot(segs[:,:,0], segs[:,:,1], 'k')
-    axs[0].plot(section[:,0],section[:,1],'r')
+    axs[0].plot(segs[:,:,0], segs[:,:,1], 'k',zorder=1)
+    axs[0].plot(section[:,0],section[:,1],'r',zorder=2)
+    axs[0].scatter(r0mean[0],r0mean[1],color='k', zorder=3)
     axs[0].set_xlim(xmin, xmax)
     axs[0].set_aspect('equal')
     axs[0].set_xlabel('x (μm)')
@@ -137,8 +138,8 @@ def plotter():
     axs[1].set_ylabel('Intensity (a.u.)')
 
     text = f'MC steps = {MC}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
-    plt.gcf().text(0.05,1.0,text)
-    plt.savefig(image_filename, bbox_inches='tight')
+    plt.gcf().text(0.02,0.8,text)
+    plt.savefig(image_filename)
 
 data, tot = input()
 
@@ -185,7 +186,7 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
         r0s = r0init(MC)
         v0s = v0init(MC)
 
-        for jj in tqdm(range(MC),desc=f'MC loop {it+1}/{tot}', leave=False):
+        for jj in tqdm(range(MC),desc=f'MC loop {it+1}/{tot}', leave=False, unit_scale=1):
             r0 = r0s[jj]
             v0 = v0s[jj]
 
@@ -201,7 +202,7 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
                 r0 = r1
                 v0 = scattering(phi)
                 t += tnew
-                totalpbar.update(v0mean*abs(tnew))
+                totalpbar.update(v0mean*tnew)
 
         profile = []
         profilegrid = []
