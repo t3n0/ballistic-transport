@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import sys
+import os
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -73,11 +76,13 @@ def winding(point, polygon):
 def r0init(MC):
     r0s = np.zeros((MC,2))
     ii = 0
-    while ii < MC:
-        r0 = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]])
-        if winding(r0, points):
-            r0s[ii] = r0
-            ii +=1
+    with tqdm(total=MC, desc='r0 init', leave=False) as pbar:
+        while ii < MC:
+            r0 = np.random.multivariate_normal(r0mean, [[r0var,0], [0,r0var]])
+            if winding(r0, points):
+                r0s[ii] = r0
+                ii +=1
+                pbar.update(1)
     return r0s
 
 def v0init(MC):
@@ -88,91 +93,130 @@ def v0init(MC):
     v0s[:,1] = v0norm*np.sin(theta)
     return v0s
 
-# physical parameters
-tau = 20                    # ps
-tmax = 100                  # ~5*tau
-r0mean = [1, 3]             # micrometers
-r0var = 0.8
-v0mean = 10.0                # micron/ps
-v0var = 0.1
-phi = 0.1*np.pi
-MC = 10000
+def input():
+    args = sys.argv
+    if len(args) < 2:
+        print('No input file given. Exit.')
+        sys.exit()
+    else:
+        input_file = args[1]
+        with open(input_file, 'r') as f:
+            data = json.load(f)
+        keys = ['tau','tmax','r0mean','r0var','v0mean','v0var','phi','MC']
+        lengths = [len(data[k]) for k in keys]
+        if all(l == lengths[0] for l in lengths):
+            return data, lengths[0]
+        else:
+            print('Input file length mismatch. Exit.')
+            sys.exit()
 
-filename = f'MC{MC}tau{tau:.0f}phi{phi:.2f}vel{v0mean:.1f}.pdf'
-points = np.array([[0, 0], [0, 10], [2, 10], [8, 3], [8, 10], [20, 10], [20, 0], [18,0], [18,8], [15,8], [15,0], [13,0], [13,8],[10,8],[10,0],[8,0],[2,7],[2,0]])
-section = np.array([[1,0],[1,8.5],[2,8.5],[8,1.5],[9,1.5],[9,9],[20,9]])
-segs = segments(points)
+def max_iterations(MC, v0, tmax):
+    tot = 0
+    for m,v,t in zip(MC, v0, tmax):
+        tot += m*v*t
+    return int(tot)
 
-edge = 0.5
-xmin = np.min(points[:,0]) - edge
-xmax = np.max(points[:,0]) + edge
-ymin = np.min(points[:,1]) - edge
-ymax = np.max(points[:,1]) + edge
+def plotter():
+    fig, axs = plt.subplots(2)
+    fig.set_size_inches(7, 5)
+    axs[0].set_position([0.37, 0.48, 0.65, 0.88])
+    axs[1].set_position([0.125, 0.11, 0.9, 0.46])
+    axs[0].imshow(bins.T, cmap='coolwarm', origin='lower', extent=[xmin, xmax, ymin, ymax], interpolation='bicubic')
+    axs[0].plot(segs[:,:,0], segs[:,:,1], 'k')
+    axs[0].plot(section[:,0],section[:,1],'r')
+    axs[0].set_xlim(xmin, xmax)
+    axs[0].set_aspect('equal')
+    axs[0].set_xlabel('x (μm)')
+    axs[0].set_ylabel('y (μm)')
 
-xsize, ysize = 400, 200
-xgrid, dx = np.linspace(xmin, xmax, xsize, retstep=True)
-ygrid, dy = np.linspace(ymin, ymax, ysize, retstep=True)
-bins = np.zeros((xsize-1,ysize-1))
+    axs[1].plot(profilegrid, profile/max(profile),'k')
+    axs[1].axhline(0, linestyle='--', color='grey')
+    for vl in vline:
+        axs[1].axvline(x=vl,color='r')
+    axs[1].set_xlabel('Distance (μm)')
+    axs[1].set_ylabel('Intensity (a.u.)')
 
-r0s = r0init(MC)
-v0s = v0init(MC)
+    text = f'MC steps = {MC}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
+    plt.gcf().text(0.05,1.0,text)
+    plt.savefig(image_filename, bbox_inches='tight')
 
-for jj in tqdm(range(MC)):
-    r0 = r0s[jj]
-    v0 = v0s[jj]
+data, tot = input()
 
-    # r0 = np.array([1,3])
-    # v0 = np.array([0.68,0.72])
+WORK_DIR = os.getcwd()
+DATA_DIR = os.path.join(WORK_DIR, data['flag'], 'data')
+IMAG_DIR = os.path.join(WORK_DIR, data['flag'], 'images')
 
-    t = 0
-    mask = [True for i in range(len(points))]
-    while t < tmax:
-        tnew, idx = collision(r0, v0)
-        mask = [True if i != idx else False for i in range(len(points))]
-        r1 = r0 + v0*tnew
-        traj = trajectory(r0,r1,t,tnew)
-        for n,m,dt in traj:
-            bins[n,m] += np.exp(-dt/tau)
-        r0 = r1
-        r12 = segs[idx,1] - segs[idx,0]
-        v0 = scattering(phi)
-        t += tnew
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+if not os.path.exists(IMAG_DIR):
+    os.makedirs(IMAG_DIR)
 
-profile = []
-profilegrid = []
-last = 0
-vline = [0]
-for i in range(len(section)-1):
-    delta = np.linalg.norm(section[i+1] - section[i])
-    traj = trajectory(section[i], section[i+1], last, delta)
-    for n,m,d in traj:
-        profile.append(bins[n,m])
-        profilegrid.append(d)
-    last += delta
-    vline.append(last)
-profile = np.array(profile)
-profilegrid = np.array(profilegrid)
+total_iterations = max_iterations(data['MC'], data['v0mean'], data['tmax'])
+with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
+    for it in range(tot):
+        # physical parameters
+        tau     = data['tau'][it]                    # ps
+        tmax    = data['tmax'][it]                  # ~5*tau
+        r0mean  = data['r0mean'][it]             # micrometers
+        r0var   = data['r0var'][it]
+        v0mean  = data['v0mean'][it]                # micron/ps
+        v0var   = data['v0var'][it]
+        phi     = data['phi'][it]*np.pi
+        MC      = data['MC'][it]
+        points  = np.array(data['points'])
+        section = np.array(data['section'])
+        
+        segs = segments(points)
+        filename =  f'MC{MC}tau{tau:.0f}phi{phi:.2f}vel{v0mean:.1f}'
+        image_filename = os.path.join(IMAG_DIR, filename + '.pdf')
+        data_filename = os.path.join(DATA_DIR, filename + '.txt')
 
-fig, axs = plt.subplots(2)
-fig.set_size_inches(7, 5)
-axs[0].set_position([0.37, 0.48, 0.65, 0.88])
-axs[1].set_position([0.125, 0.11, 0.9, 0.46])
-axs[0].imshow(bins.T, cmap='coolwarm', origin='lower', extent=[xmin, xmax, ymin, ymax], interpolation='bicubic')
-axs[0].plot(segs[:,:,0], segs[:,:,1], 'k')
-axs[0].plot(section[:,0],section[:,1],'r')
-axs[0].set_xlim(xmin, xmax)
-axs[0].set_aspect('equal')
-axs[0].set_xlabel('x (μm)')
-axs[0].set_ylabel('y (μm)')
+        edge = 0.5
+        xmin = np.min(points[:,0]) - edge
+        xmax = np.max(points[:,0]) + edge
+        ymin = np.min(points[:,1]) - edge
+        ymax = np.max(points[:,1]) + edge
 
-axs[1].plot(profilegrid, profile/max(profile),'k')
-axs[1].axhline(0, linestyle='--', color='grey')
-for vl in vline:
-    axs[1].axvline(x=vl,color='r')
-axs[1].set_xlabel('Distance (μm)')
-axs[1].set_ylabel('Intensity (a.u.)')
+        xsize, ysize = 400, 200
+        xgrid, dx = np.linspace(xmin, xmax, xsize, retstep=True)
+        ygrid, dy = np.linspace(ymin, ymax, ysize, retstep=True)
+        bins = np.zeros((xsize-1,ysize-1))
 
-text = f'MC steps = {MC}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
-plt.gcf().text(0.05,1.0,text)
+        r0s = r0init(MC)
+        v0s = v0init(MC)
 
-plt.savefig(filename, bbox_inches='tight')
+        for jj in tqdm(range(MC),desc=f'MC loop {it+1}/{tot}', leave=False):
+            r0 = r0s[jj]
+            v0 = v0s[jj]
+
+            t = 0
+            mask = [True for i in range(len(points))]
+            while t < tmax:
+                tnew, idx = collision(r0, v0)
+                mask = [True if i != idx else False for i in range(len(points))]
+                r1 = r0 + v0*tnew
+                traj = trajectory(r0,r1,t,tnew)
+                for n,m,dt in traj:
+                    bins[n,m] += np.exp(-dt/tau)
+                r0 = r1
+                v0 = scattering(phi)
+                t += tnew
+                totalpbar.update(v0mean*abs(tnew))
+
+        profile = []
+        profilegrid = []
+        last = 0
+        vline = [0]
+        for i in range(len(section)-1):
+            delta = np.linalg.norm(section[i+1] - section[i])
+            traj = trajectory(section[i], section[i+1], last, delta)
+            for n,m,d in traj:
+                profile.append(bins[n,m])
+                profilegrid.append(d)
+            last += delta
+            vline.append(last)
+        profile = np.array(profile)
+        profilegrid = np.array(profilegrid)
+
+        plotter()
+        np.savetxt(data_filename, bins)
