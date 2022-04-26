@@ -22,7 +22,7 @@ Requirements:
 
 ## Usage
 
-The user must first create an input file in `json` format. 
+The user must first create an input file in `json` format.
 Then, to exectute the calculation, simply type in the terminal
 
 `python bt.py <my-input-file>`
