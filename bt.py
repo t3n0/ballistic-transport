@@ -102,19 +102,29 @@ def input():
         input_file = args[1]
         with open(input_file, 'r') as f:
             data = json.load(f)
-        keys = ['tau','tmax','r0mean','r0var','v0mean','v0var','phi','MC']
-        lengths = [len(data[k]) for k in keys]
-        if all(l == lengths[0] for l in lengths):
-            return data, lengths[0]
-        else:
-            print('Input file length mismatch. Exit.')
-            sys.exit()
+        if data['start'] == 'from_scratch':
+            keys = ['tau','tmax','r0mean','r0var','v0mean','v0var','phi','MC']
+            lengths = [len(data[k]) for k in keys]
+            if not all(l == len(data['MC']) for l in lengths):
+                print('Input file length mismatch. Exit.')
+                sys.exit()
+        return data, len(data['MC'])
 
 def max_iterations(MC, v0, tmax):
     tot = 0
     for m,v,t in zip(MC, v0, tmax):
         tot += m*v*t
     return int(tot)
+
+def domain(points, xsize, ysize):
+    edge = 0.5
+    xmin = np.min(points[:,0]) - edge
+    xmax = np.max(points[:,0]) + edge
+    ymin = np.min(points[:,1]) - edge
+    ymax = np.max(points[:,1]) + edge
+    dx = (xmax - xmin)/(xsize-1)
+    dy = (ymax - ymin)/(ysize-1)
+    return xmin, xmax, dx, ymin, ymax, dy
 
 def plotter():
     fig, axs = plt.subplots(2)
@@ -137,11 +147,11 @@ def plotter():
     axs[1].set_xlabel('Distance (μm)')
     axs[1].set_ylabel('Intensity (a.u.)')
 
-    text = f'MC steps = {MC}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
+    text = f'MC steps = {MC+MCold}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
     plt.gcf().text(0.02,0.8,text)
     plt.savefig(image_filename)
 
-data, tot = input()
+data, loops = input()
 
 WORK_DIR = os.getcwd()
 DATA_DIR = os.path.join(WORK_DIR, data['flag'], 'data')
@@ -152,41 +162,58 @@ if not os.path.exists(DATA_DIR):
 if not os.path.exists(IMAG_DIR):
     os.makedirs(IMAG_DIR)
 
-total_iterations = max_iterations(data['MC'], data['v0mean'], data['tmax'])
+if data['start'] == 'from_scratch':
+    total_iterations = max_iterations(data['MC'], data['v0mean'], data['tmax'])
+else:
+    files = [os.path.join(DATA_DIR, f'it{it}' + '.npz') for it in range(loops)]
+    v0means = [np.load(file)['v0mean'] for file in files]
+    tmaxs = [np.load(file)['tmax'] for file in files]
+    total_iterations = max_iterations(data['MC'], v0means, tmaxs)
+
 with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
-    for it in range(tot):
-        # physical parameters
-        tau     = data['tau'][it]                    # ps
-        tmax    = data['tmax'][it]                  # ~5*tau
-        r0mean  = data['r0mean'][it]             # micrometers
-        r0var   = data['r0var'][it]
-        v0mean  = data['v0mean'][it]                # micron/ps
-        v0var   = data['v0var'][it]
-        phi     = data['phi'][it]*np.pi
-        MC      = data['MC'][it]
-        points  = np.array(data['points'])
-        section = np.array(data['section'])
-        
-        segs = segments(points)
-        filename =  f'MC{MC}tau{tau:.0f}phi{phi:.2f}vel{v0mean:.1f}'
+    for it in range(loops):
+
+        filename =  f'it{it}'
         image_filename = os.path.join(IMAG_DIR, filename + '.pdf')
-        data_filename = os.path.join(DATA_DIR, filename + '.txt')
+        data_filename = os.path.join(DATA_DIR, filename + '.npz')
 
-        edge = 0.5
-        xmin = np.min(points[:,0]) - edge
-        xmax = np.max(points[:,0]) + edge
-        ymin = np.min(points[:,1]) - edge
-        ymax = np.max(points[:,1]) + edge
+        MC = data['MC'][it]
 
-        xsize, ysize = 400, 200
-        xgrid, dx = np.linspace(xmin, xmax, xsize, retstep=True)
-        ygrid, dy = np.linspace(ymin, ymax, ysize, retstep=True)
-        bins = np.zeros((xsize-1,ysize-1))
+        if data['start'] == 'from_scratch':
+            # physical parameters
+            MCold   = 0
+            tau     = data['tau'][it]                    # ps
+            tmax    = data['tmax'][it]                  # ~5*tau
+            r0mean  = data['r0mean'][it]             # micrometers
+            r0var   = data['r0var'][it]
+            v0mean  = data['v0mean'][it]                # micron/ps
+            v0var   = data['v0var'][it]
+            phi     = data['phi'][it]*np.pi
+            xsize, ysize = data['samples']
+            points  = np.array(data['points'])
+            section = np.array(data['section'])
+            bins    = np.zeros((xsize-1,ysize-1))
+        else:
+            restart = np.load(data_filename)
+            MCold   = restart['MC']
+            tau     = restart['tau']                   # ps
+            tmax    = restart['tmax']                 # ~5*tau
+            r0mean  = restart['r0mean']             # micrometers
+            r0var   = restart['r0var']
+            v0mean  = restart['v0mean']               # micron/ps
+            v0var   = restart['v0var']
+            phi     = restart['phi']
+            points  = restart['points']
+            section = restart['section']
+            xsize, ysize = restart['samples']
+            bins    = restart['bins']
 
+        xmin, xmax, dx, ymin, ymax, dy = domain(points, xsize, ysize)
+        segs    = segments(points)
         r0s = r0init(MC)
         v0s = v0init(MC)
 
-        for jj in tqdm(range(MC),desc=f'MC loop {it+1}/{tot}', leave=False, unit_scale=1):
+        for jj in tqdm(range(MC),desc=f'MC loop {it+1}/{loops}', leave=False, unit_scale=1):
             r0 = r0s[jj]
             v0 = v0s[jj]
 
@@ -220,4 +247,4 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
         profilegrid = np.array(profilegrid)
 
         plotter()
-        np.savetxt(data_filename, bins)
+        np.savez(data_filename, MC=MC+MCold, tau=tau, tmax=tmax, r0mean=r0mean, r0var=r0var, v0mean=v0mean, v0var=v0var, phi=phi, points=points, section=section, samples=[xsize,ysize], bins=bins)
