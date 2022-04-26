@@ -67,7 +67,7 @@ For any problems, questions or suggestions, please contact me at tenobaldi@gmail
 
 ## Authors and acknowledgment
 
-The development of SWCNT is proudly powered by [me](https://github.com/t3n0).
+The development of this tool is proudly powered by [me](https://github.com/t3n0).
 
 ## License
 
