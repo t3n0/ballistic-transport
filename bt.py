@@ -149,7 +149,7 @@ def plotter():
 
     text = f'MC steps = {MC+MCold}\ntmax = {tmax:.1f} ps\ntau = {tau:.1f} ps\nr0 = ({r0mean[0]:.1f},{r0mean[1]:.1f}) ± {r0var} μm\nv0 = {v0mean:.1f} ± {v0var} μm/ps\ndiffusion = ±{phi:.2f} rads'
     plt.gcf().text(0.02,0.8,text)
-    plt.savefig(image_filename)
+    plt.savefig(image_filename,dpi=300)
 
 data, loops = input()
 
@@ -174,7 +174,7 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
     for it in range(loops):
 
         filename =  f'it{it}'
-        image_filename = os.path.join(IMAG_DIR, filename + '.pdf')
+        image_filename = os.path.join(IMAG_DIR, filename + '.png')
         data_filename = os.path.join(DATA_DIR, filename + '.npz')
 
         MC = data['MC'][it]

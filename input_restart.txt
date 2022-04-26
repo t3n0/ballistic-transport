@@ -1,5 +1,5 @@
 {
 "start"   : "restart",
 "flag"    : "example",
-"MC"      : [100, 100, 100]
+"MC"      : [100, 250, 500]
 }
