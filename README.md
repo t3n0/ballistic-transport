@@ -1,4 +1,4 @@
-# 2D ballistic transport
+# 2D Ballistic Transport tool (2DBT)
 
 [![GitHub Release Date](https://img.shields.io/github/release-date/t3n0/ballistic-transport)](https://github.com/t3n0/ballistic-transport/releases/latest)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/t3n0/ballistic-transport)](https://github.com/t3n0/ballistic-transport/releases/latest)
