@@ -20,6 +20,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from scipy import ndimage
 
 def collision(r0, v0):
     D = (v0[0]*(segs[:,0,1]-segs[:,1,1]) - v0[1]*(segs[:,0,0]-segs[:,1,0]))
@@ -141,6 +142,7 @@ def plotter():
     axs[0].set_ylabel('y (μm)')
 
     axs[1].plot(profilegrid, profile/max(profile),'k')
+    axs[1].set_ylim(-0.05, 1.05)
     axs[1].axhline(0, linestyle='--', color='grey')
     for vl in vline:
         axs[1].axvline(x=vl,color='r')
@@ -231,6 +233,8 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
                 t += tnew
                 totalpbar.update(v0mean*tnew)
 
+        filter_bins = ndimage.uniform_filter(bins, size=3, mode='constant')
+
         profile = []
         profilegrid = []
         last = 0
@@ -239,7 +243,7 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
             delta = np.linalg.norm(section[i+1] - section[i])
             traj = trajectory(section[i], section[i+1], last, delta)
             for n,m,d in traj:
-                profile.append(bins[n,m])
+                profile.append(filter_bins[n,m])
                 profilegrid.append(d)
             last += delta
             vline.append(last)
