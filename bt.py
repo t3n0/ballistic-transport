@@ -178,6 +178,7 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
         filename =  f'it{it}'
         image_filename = os.path.join(IMAG_DIR, filename + '.png')
         data_filename = os.path.join(DATA_DIR, filename + '.npz')
+        profile_filename = os.path.join(DATA_DIR, filename + 'profile.txt')
 
         MC = data['MC'][it]
 
@@ -233,7 +234,7 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
                 t += tnew
                 totalpbar.update(v0mean*tnew)
 
-        filter_bins = ndimage.uniform_filter(bins, size=3, mode='constant')
+        filter_bins = ndimage.uniform_filter(bins, size=5, mode='constant')
 
         profile = []
         profilegrid = []
@@ -252,3 +253,4 @@ with tqdm(total=total_iterations, desc='total', unit_scale=1) as totalpbar:
 
         plotter()
         np.savez(data_filename, MC=MC+MCold, tau=tau, tmax=tmax, r0mean=r0mean, r0var=r0var, v0mean=v0mean, v0var=v0var, phi=phi, points=points, section=section, samples=[xsize,ysize], bins=bins)
+        np.savetxt(profile_filename, np.array([profilegrid, profile]).T)
